@@ -6,10 +6,19 @@ import webbrowser
 import datetime
 import random
 from openai import OpenAI
+from dotenv import load_dotenv
+load_dotenv()
+
 #from openaitest import client
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-client = OpenAI(base_url="https://api.groq.com/openai/v1")
+api_key = os.getenv("OPENAI_API_KEY")
+
+if not api_key:
+    raise RuntimeError("OPENAI_API_KEY not found")
+
+client = OpenAI(
+    api_key = api_key,
+    base_url="https://api.groq.com/openai/v1")
 
 chat_history = [
     {"role": "system", "content": "You are Anni, a helpful AI assistant."}
