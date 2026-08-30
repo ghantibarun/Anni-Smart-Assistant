@@ -1,0 +1,8 @@
+openai
+SpeechRecognition
+pywin32
+python-dotenv
+PyAudio
+pytest
+black
+flake8

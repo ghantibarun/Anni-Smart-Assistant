@@ -1,160 +1,129 @@
-from time import strftime
-import speech_recognition as sr
-import os
-import pyttsx3
-import webbrowser
-import datetime
-import random
-from openai import OpenAI
+import logging
 from dotenv import load_dotenv
-load_dotenv()
 
-#from openaitest import client
+from core.audio import AudioEngine
+from core.llm import AIEngine
+from core.commands import CommandHandler
+from core.extractor import AnswerExtractor
 
-api_key = os.getenv("OPENAI_API_KEY")
+# =====================================================
+# LOGGING
+# =====================================================
 
-if not api_key:
-    raise RuntimeError("OPENAI_API_KEY not found")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
-client = OpenAI(
-    api_key = api_key,
-    base_url="https://api.groq.com/openai/v1")
+# Hide HTTP request logs
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 
-chat_history = [
-    {"role": "system", "content": "You are Anni, a helpful AI assistant."}
-]
 
-def chat(query):
-    global chat_history
-    client = OpenAI(base_url="https://api.groq.com/openai/v1")
+# =====================================================
+# MAIN
+# =====================================================
 
-    # Nilu speaks
-    print(f"Nilu: {query}")
 
-    chat_history.append({
-        "role": "user",
-        "content": query
-    })
+def main():
 
-    try:
-        response = client.chat.completions.create(
-            model="openai/gpt-oss-20b",
-            messages=chat_history,
-            temperature=0.7,
-            max_tokens=500
-        )
-
-        answer = response.choices[0].message.content
-
-        # Anni speaks
-        print(f"Anni: {answer}")
-        say(answer[:50])
-
-        chat_history.append({
-            "role": "assistant",
-            "content": answer
-        })
-
-        return answer
-
-    except Exception as e:
-        print("Chat Error:", e)
-        say("Sorry sir I faced an error.")
-        return ""
-
-def ai(prompt):
-
-    text = f"OpenAi response for prompt: {prompt} \n *********************\n\n"
+    load_dotenv()
 
     try:
-        response = client.chat.completions.create(
-            model="openai/gpt-oss-20b",
-            messages=[
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.7,
-            max_tokens=1000
-        )
+        audio = AudioEngine()
+        llm = AIEngine()
 
-        print(response.choices[0].message.content)
-        text += response.choices[0].message.content
-        if not os.path.exists("Openai"):
-            os.mkdir("Openai")
+        # CommandHandler remembers the current application
+        commander = CommandHandler(llm)
 
-        #with open(f"Openai/prompt_{random.randint(1,999999)}.txt","w",encoding="utf-8") as f:
-        with open(f"Openai/{''.join(prompt.split('AI')[1:])}.txt","w",encoding="utf-8") as f:
-            f.write(text)
+        extractor = AnswerExtractor()
+
     except Exception as e:
-        print("AI Error:", e)
-        say("Sorry, I faced an error while using AI")
 
-def say(text):
-    engine = pyttsx3.init()
-    engine.say(text)
-    engine.runAndWait()
-    engine.stop()
+        logging.critical(f"Failed to initialize Anni: {e}")
 
+        return
 
-def takeCommand():
-    r = sr.Recognizer()
-    with sr.Microphone() as source:
-        r.pause_threshold = 1
-        audio = r.listen(source)
-    try:
-        print("Recognizing...")
-        query = r.recognize_google(audio, language='en-US')
-        print(f"User said: {query}")
-        return query
-    except Exception as e:
-        return "Some error occurred. Sorry from Anni"
+    # -------------------------------------------------
+    # Startup
+    # -------------------------------------------------
 
+    audio.speak("Hello Sir, Anni is online and ready for listening....")
 
-if __name__ == '__main__':
-    print('PyCharm')
-    say("Hello I am Anni")
+    # -------------------------------------------------
+    # Main loop
+    # -------------------------------------------------
 
     while True:
-        print("Listening...")
-        query = takeCommand()
 
-        #todo: Add more sites
-        sites = [["youtube","https://www.youtube.com"],["wikipedia","https://www.wikipedia.com"],
-                 ["google","https://www.google.com"]]
-        for site in sites:
-            if f"Open {site[0]}".lower() in query.lower():
-                say(f"Opening {site[0]} sir...")
-                webbrowser.open_new_tab(site[1])
+        query = audio.listen()
 
-        #todo: Add a feature to play a specific song
-        if "open music" in query:
-            musicpath = r"C:\My\Main Rang Sharbaton Ka _ Arijit Singh _ Phata Poster Nikhla Hero _ 2013(MP3_160K).mp3"
-            os.startfile(musicpath)
-        if "the time" in query:
-            strftime = datetime.datetime.now().strftime("%H:%M %S")
-            say(f"Sir the time is {strftime}")
+        if not query:
+            continue
 
-        apps = {
-            "calculator": "calculator:",
-            "settings": "ms-settings:",
-            "chrome": r"C:\Program Files\Google\Chrome\Application\chrome.exe"
-        }
-        for app in apps:
-            if f"open {app}" in query.lower():
-                say(f"Opening {app} sir...")
-                try:
-                    os.startfile(apps[app])
-                except:
-                    say("Sorry, I cannot open this app")
+        query_lower = query.lower().strip()
 
-        if "Using AI".lower() in query.lower():
-            ai(prompt=query)
+        # -------------------------------------------------
+        # EXIT
+        # -------------------------------------------------
 
-        elif any(word in query.lower() for word in ("exit", "quit", "stop")):
-            say("Thank you and Good bye")
+        if any(
+            word in query_lower.split() for word in ("exit", "quit", "stop", "sleep")
+        ):
+
+            audio.speak("Thank you and Goodbye sir.")
+
             break
-        elif "reset chat".lower() in query.lower():
-            chatstr = ""
 
-        else:
-            print("Chating...")
-            chat(query)
+        # -------------------------------------------------
+        # RESET CHAT
+        # -------------------------------------------------
+
+        if "reset chat" in query_lower:
+
+            llm.reset_chat()
+
+            audio.speak("Chat history cleared.")
+
+            continue
+
+        # -------------------------------------------------
+        # SAVE AI PROMPT
+        # -------------------------------------------------
+
+        if "using ai" in query_lower:
+
+            audio.speak("Processing.")
+
+            response = llm.save_ai_prompt(query)
+
+            audio.speak(response)
+
+            continue
+
+        # -------------------------------------------------
+        # DESKTOP TASK
+        # -------------------------------------------------
+
+        if commander.looks_like_task(query):
+
+            response = commander.process_system_command(query)
+
+            if response:
+
+                audio.speak(response)
+
+                continue
+
+        # -------------------------------------------------
+        # NORMAL AI QUESTION
+        # -------------------------------------------------
+
+        full_response = llm.chat(query)
+
+        short_response = extractor.get_spoken_material(full_response)
+
+        audio.speak(short_response)
+
+
+if __name__ == "__main__":
+    main()

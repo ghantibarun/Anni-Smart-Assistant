@@ -1,1 +1,20 @@
+# Environments
 .env
+.venv
+env/
+venv/
+
+# VS Code IDE files
+.vscode/
+
+# Python Cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Pytest Cache
+.pytest_cache/
+
+# Auto-generated text files
+Openai/

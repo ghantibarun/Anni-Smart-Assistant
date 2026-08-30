@@ -1,0 +1,13 @@
+{
+  "sites": {
+    "youtube": "https://www.youtube.com",
+    "wikipedia": "https://www.wikipedia.org",
+    "google": "https://www.google.com"
+  },
+  "apps": {
+    "calculator": "calculator:",
+    "settings": "ms-settings:",
+    "chrome": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
+  },
+  "music_path": "C:\\My\\Main Rang Sharbaton Ka.mp3"
+}
